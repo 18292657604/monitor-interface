@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- START SNIPPET: beans -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+	   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	   xmlns:jaxws="http://cxf.apache.org/jaxws" xmlns:tx="http://www.springframework.org/schema/tx"
+	   xmlns:aop="http://www.springframework.org/schema/aop"
+	   xsi:schemaLocation="
+	http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/aop
+    http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
+    http://www.springframework.org/schema/tx
+    http://www.springframework.org/schema/tx/spring-tx.xsd
+	http://cxf.apache.org/jaxws http://cxf.apache.org/schemas/jaxws.xsd">
+
+	<bean id="propertyPlaceholderConfigurer"
+		  class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath:connect.properties</value>
+			</list>
+		</property>
+		<property name="ignoreUnresolvablePlaceholders" value="true" />
+	</bean>
+
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<property name="driverClassName"     value="${jdbc.mysql.driverClassName}"/>
+		<property name="url"         value="${jdbc.mysql.url}"/>
+		<property name="username"    value="${jdbc.mysql.username}"/>
+		<property name="password"    value="${jdbc.mysql.password}"/>
+		<property name="initialSize" value="${dbcp.initialSize}" />
+		<property name="minIdle" value="${dbcp.minIdle}" />
+		<property name="maxActive" value="${dbcp.maxActive}" />
+		<property name="maxIdle" value="${dbcp.maxIdle}" />
+		<property name="maxWait" value="${dbcp.maxWait}" />
+		<property name="removeAbandoned" value="${dbcp.removeAbandoned}" />
+		<property name="removeAbandonedTimeout" value="${dbcp.removeAbandonedTimeout}" />
+		<property name="testOnBorrow" value="${dbcp.testOnBorrow}" />
+		<property name="defaultAutoCommit" value="${dbcp.defaultAutoCommit}" />
+		<property name="testWhileIdle" value="${dbcp.testWhileIdle}" />
+		<property name="timeBetweenEvictionRunsMillis" value="${dbcp.timeBetweenEvictionRunsMillis}" />
+		<property name="minEvictableIdleTimeMillis" value="${dbcp.minEvictableIdleTimeMillis}" />
+		<property name="numTestsPerEvictionRun" value="${dbcp.numTestsPerEvictionRun}" />
+	</bean>
+
+
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource"/>
+		<!-- mybatis的配置文件 -->
+		<property name="configLocation" value="classpath:mybatis-config.xml"/>
+		<property name="mapperLocations">
+			<list>
+				<!-- 由于mysql和oracle之间sql语法有一定的差异性，所以这里需要采用两种不同的mybatis配置文件 -->
+				<value>classpath:config/mybatis/*.xml</value>
+			</list>
+		</property>
+	</bean>
+
+	<!-- Spring自动扫描dao层下的类 -->
+	<bean id="mapper" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+		<property name="basePackage" value="com.rtyj.monitor.dao"/>
+		<property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+	</bean>
+
+	<!-- spring的事物注入 -->
+	<bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+		<property name="dataSource" ref="dataSource"/>
+	</bean>
+
+	<!-- 配置事物驱动-->
+	<!--<tx:annotation-driven transaction-manager="transactionManager" proxy-target-class="true"/>-->
+
+	<!--spring 容器管理事物-->
+	<tx:advice id="txAdvice" transaction-manager="transactionManager">
+		<tx:attributes>
+			<tx:method name="save*" propagation="REQUIRED"/>
+			<tx:method name="del*" propagation="SUPPORTS"/>
+			<tx:method name="get*" propagation="NOT_SUPPORTED"/>
+		</tx:attributes>
+	</tx:advice>
+
+	<!--利用aop切面-->
+	<aop:config>
+		<aop:pointcut id="transactionPointcut" expression="execution(* com.rtyj.monitor.service..*.*(..))"/>
+		<aop:advisor advice-ref="txAdvice" pointcut-ref="transactionPointcut"/>
+	</aop:config>
+
+</beans>
